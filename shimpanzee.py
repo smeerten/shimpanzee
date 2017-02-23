@@ -40,12 +40,12 @@ NSTEPS = 1000
 
 class ShimSim(object):
     
-    def __init__(self, N=100000, dimensions=[2.5,10], angles=[0,0], sw=500.0, npoints=512):
+    def __init__(self, N=500000, dimensions=[2.5,10], angles=[0,0], sw=500.0, npoints=512):
         super(ShimSim, self).__init__()
         self.OVERSAMPLE = 16
         self.N = N
         self.r = dimensions[0] # Diameter to radius [mm]
-        self.z = dimensions[1] # length [mm]
+        self.l = dimensions[1] # length [mm]
         self.theta = angles[0]
         self.phi = angles[1]
         self.sw = sw # sweepwidth [kHz]
@@ -55,20 +55,33 @@ class ShimSim(object):
         self.setupGrid()
 
     def setupGrid(self):
-        self.Z = np.random.uniform(-self.z/2.0, self.z/2.0, self.N)
+        self.z = np.random.uniform(-self.l/2.0, self.l/2.0, self.N)
         R = np.random.triangular(0, self.r, self.r, self.N)
         angle = np.random.uniform(0, 2*np.pi, self.N)
-        self.X = R*np.cos(angle)
-        self.Y = R*np.sin(angle)
+        self.x = R*np.cos(angle)
+        self.y = R*np.sin(angle)
         Rz = np.array([[np.cos(self.phi), np.sin(self.phi), 0], [-np.sin(self.phi), np.cos(self.phi), 0], [0, 0, 1]])
         Rx = np.array([[1, 0, 0], [0, np.cos(self.theta), np.sin(self.theta)], [0, -np.sin(self.theta), np.cos(self.theta)]])
         rotMatrix = np.dot(Rz, Rx)
-        mat = np.array([self.X, self.Y, self.Z])
+        mat = np.array([self.x, self.y, self.z])
         mat = np.dot(rotMatrix, mat)
-        self.X = mat[0]
-        self.Y = mat[1]
-        self.Z = mat[2]
-        self.Mfield = np.zeros(self.X.shape)
+        self.x = mat[0]
+        self.y = mat[1]
+        self.z = mat[2]
+        # ShimTypes
+        self.Z = self.z
+        self.X = self.x
+        self.Y = self.y
+        self.Z2 = self.z**2 - 0.5*(self.x**2 + self.y**2)
+        self.XZ = 3 * self.x * self.z
+        self.YZ = 3 * self.y * self.z
+        self.X2_Y2 = 3 * (self.x**2 - self.y**2)
+        self.XY = 6* self.x * self.y
+        self.Z3 = self.z**3 - 3.0/2.0*(self.x**2 + self.y**2)*self.z
+        self.Z4 = self.z**4 - 3*self.z**2*(self.x**2 + self.y**2) + 3.0/8.0*(self.x**2 + self.y**2)**2
+        self.Z5 = self.z**5 - 5*self.z**3*(self.x**2 + self.y**2) + 15.0/8.0*self.z*(self.x**2 + self.y**2)**2
+
+        self.Mfield = np.zeros(self.x.shape)
         self.freq = np.linspace(-self.sw/2.0, self.sw/2.0, self.npoints)
         self.spectrum = np.zeros(self.npoints)
         self.lb = np.exp(-np.linspace(0,10e3*self.OVERSAMPLE/self.sw,self.npoints*self.OVERSAMPLE)**2)
@@ -87,8 +100,8 @@ class ShimSim(object):
         x2_y2 += self.x2_y2Game
         z4 += self.z4Game
         z5 += self.z5Game
-        self.Mfield = z1*self.Z + z2*self.Z**2 + z3*self.Z**3 + z4*self.Z**4 + z5*self.Z**5  
-        self.Mfield += x1*self.X + y1*self.Y + xz*self.X*self.Z + xy*self.X*self.Y + yz*self.Y*self.Z + x2_y2*(self.X**2-self.Y**2)
+        self.Mfield = z1*self.Z + z2*self.Z2 + z3*self.Z3 + z4*self.Z4 + z5*self.Z5  
+        self.Mfield += x1*self.X + y1*self.Y + xz*self.XZ + xy*self.XY + yz*self.YZ + x2_y2*self.X2_Y2
         self.spectrum, tmp = np.histogram(self.Mfield, self.npoints*self.OVERSAMPLE, (-self.sw/2.0, self.sw/2.0), density=True)
         self.spectrum = np.fft.fft(np.fft.ifft(self.spectrum)*self.lb)
         self.spectrum = self.spectrum[::self.OVERSAMPLE]
@@ -346,7 +359,7 @@ class SettingsFrame(QtWidgets.QWidget):
         grid.addWidget(QtWidgets.QLabel("Length [mm]"), 2, 0)
         self.length = QtWidgets.QLineEdit(self)
         self.length.setAlignment(QtCore.Qt.AlignHCenter)
-        self.length.setText(str(self.shimSim.z))
+        self.length.setText(str(self.shimSim.l))
         self.length.returnPressed.connect(self.setDimensions)
         grid.addWidget(self.length, 2, 1)
         
@@ -399,7 +412,7 @@ class SettingsFrame(QtWidgets.QWidget):
         if diameter is not None:
             self.shimSim.r = diameter/2.0
         if length is not None:
-            self.shimSim.z = length
+            self.shimSim.l = length
         self.shimSim.setupGrid()
         self.father.shimFrame.sim()
 
