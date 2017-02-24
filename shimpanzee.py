@@ -139,8 +139,8 @@ class ShimSim(object):
         self.spectrum = self.spectrum[::self.OVERSAMPLE]
         self.fidSurface = (np.sum(np.abs(self.spectrum))+np.abs(self.spectrum[0])*0.5)*self.sw
         self.spectrum = np.real(self.spectrum)
-        r1, r2  = UnivariateSpline(self.freq, self.spectrum-np.max(self.spectrum)/2.0, s=0).roots()
-        self.fwhm = np.abs(r2-r1)
+        r  = UnivariateSpline(self.freq, self.spectrum-np.max(self.spectrum)/2.0, s=0).roots()
+        self.fwhm = np.abs(max(r)-min(r))
 
     def resetGame(self):
         self.z1Game = 0.0
