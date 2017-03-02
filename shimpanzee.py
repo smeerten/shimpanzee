@@ -23,6 +23,62 @@ from safeEval import safeEval
 from spectrumFrame_Shim import Plot1DFrame
 from scipy.interpolate import UnivariateSpline
 
+                     # x  y  z 
+convert_1 = np.array([[0, 1.0, 0], 
+                     [0, 0, 1], 
+                     [1, 0, 0]])
+rot_1 = np.array([[1, 0, 0], # x
+                  [0, 0, -1], # y
+                  [0, 1, 0]]) # z
+convert_1_inv = np.dot(convert_1.T,np.linalg.inv(np.dot(convert_1,convert_1.T))) # Calculate the right inverse
+X90_1 = np.dot(np.dot(convert_1, rot_1), convert_1_inv)
+X_90_1 = np.linalg.inv(X90_1)
+
+                     # xx xy xz yy yz zz
+convert_2 = np.array([[0, 1, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 1, 0],
+                      [-0.5, 0, 0, -0.5, 0, 1],
+                      [0, 0, 1, 0, 0, 0],
+                      [0.5, 0, 0, -0.5, 0, 0]])
+convert_2[2] *= np.sqrt(1/3.0)
+rot_2 = np.array([[1, 0, 0, 0, 0, 0], # xx
+                  [0, 0, -1, 0, 0, 0], # xy
+                  [0, 1, 0, 0, 0, 0], # xz
+                  [0, 0, 0, 0, 0, 1], # yy
+                  [0, 0, 0, 0, -1, 0], # yz
+                  [0, 0, 0, 1, 0, 0]]) # zz
+convert_2_inv = np.dot(convert_2.T,np.linalg.inv(np.dot(convert_2,convert_2.T))) # Calculate the right inverse
+X90_2 = np.dot(np.dot(convert_2, rot_2), convert_2_inv)
+X_90_2 = np.linalg.inv(X90_2)
+
+                     # xxx xxy xxz xyy xyz xzz yyy yyz yzz zzz
+convert_3 = np.array([[0, 3.0, 0, 0, 0, 0, -1, 0, 0, 0],
+                      [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                      [0, -1, 0, 0, 0, 0, -1, 0, 4, 0],
+                      [0, 0, -3, 0, 0, 0, 0, -3, 0, 2],
+                      [-1, 0, 0, -1, 0, 4, 0, 0, 0, 0],
+                      [0, 0, 1, 0, 0, 0, 0, -1, 0, 0],
+                      [1, 0, 0, -3, 0, 0, 0, 0, 0, 0]])
+convert_3[0] *= 0.25*np.sqrt(35.0/2.0)
+convert_3[1] *= 0.5*np.sqrt(105)
+convert_3[2] *= 0.25*np.sqrt(21.0/2.0)
+convert_3[3] *= 0.25*np.sqrt(7)
+convert_3[4] *= 0.25*np.sqrt(21.0/2.0)
+convert_3[5] *= 0.25*np.sqrt(105)
+convert_3[6] *= 0.25*np.sqrt(35.0/2.0)
+rot_3 = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0], # xxx
+                  [0, 0, -1, 0, 0, 0, 0, 0, 0, 0], # xxy
+                  [0, 1, 0, 0, 0, 0, 0, 0, 0, 0], # xxz
+                  [0, 0, 0, 0, 0, 1, 0, 0, 0, 0], # xyy
+                  [0, 0, 0, 0, -1, 0, 0, 0, 0, 0], # xyz
+                  [0, 0, 0, 1, 0, 0, 0, 0, 0, 0], # xzz
+                  [0, 0, 0, 0, 0, 0, 0, 0, 0, -1], # yyy
+                  [0, 0, 0, 0, 0, 0, 0, 0, 1, 0], # yyz
+                  [0, 0, 0, 0, 0, 0, 0, -1, 0, 0], # yzz
+                  [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]]) # zzz
+convert_3_inv = np.dot(convert_3.T,np.linalg.inv(np.dot(convert_3,convert_3.T))) # Calculate the right inverse
+X90_3 = np.dot(np.dot(convert_3, rot_3), convert_3_inv)
+X_90_3 = np.linalg.inv(X90_3)
 
 Z1LIM = 20.0
 X1LIM = 20.0
@@ -42,10 +98,10 @@ XYZLIM = 1.0
 X3LIM = 1.0
 Y3LIM = 1.0
 
-Z4LIM = 0.25
-Z5LIM = 0.05
-
 NSTEPS = 1000
+
+def rotMatrix_z(size, angle):
+    return np.diag(np.cos(angle*np.arange(size,-size-1,-1)))+np.fliplr(np.diag(np.sin(angle*np.arange(size,-size-1,-1))))
 
 
 class ShimSim(object):
@@ -71,98 +127,99 @@ class ShimSim(object):
         angle = np.random.uniform(0, 2*np.pi, self.N)
         self.x = R*np.cos(angle)
         self.y = R*np.sin(angle)
-        Rz = np.array([[np.cos(self.phi), np.sin(self.phi), 0], [-np.sin(self.phi), np.cos(self.phi), 0], [0, 0, 1]])
-        Rx = np.array([[1, 0, 0], [0, np.cos(self.theta), np.sin(self.theta)], [0, -np.sin(self.theta), np.cos(self.theta)]])
-        rotMatrix = np.dot(Rz, Rx)
+        self.rotMatrix_1 = np.dot(np.dot(X_90_1, rotMatrix_z(1, self.theta)), np.dot(X90_1, rotMatrix_z(1, self.phi)))
+        self.rotMatrix_2 = np.dot(np.dot(X_90_2, rotMatrix_z(2, self.theta)), np.dot(X90_2, rotMatrix_z(2, self.phi)))
+        self.rotMatrix_3 = np.dot(np.dot(X_90_3, rotMatrix_z(3, self.theta)), np.dot(X90_3, rotMatrix_z(3, self.phi)))
+
+        #Rz = np.array([[np.cos(self.phi), np.sin(self.phi), 0], [-np.sin(self.phi), np.cos(self.phi), 0], [0, 0, 1]])
+        #Rx = np.array([[1, 0, 0], [0, np.cos(self.theta), np.sin(self.theta)], [0, -np.sin(self.theta), np.cos(self.theta)]])
+        #rotMatrix = np.dot(Rz, Rx)
         mat = np.array([self.x, self.y, self.z])
-        mat = np.dot(rotMatrix, mat)
+        #mat = np.dot(rotMatrix, mat)
         self.x = mat[0]
         self.y = mat[1]
         self.z = mat[2]
         # ShimTypes
-        self.Z = self.z
-        self.X = self.x
-        self.Y = self.y
+        self.Y = np.sqrt(3/(4*np.pi)) * self.y
+        self.X = np.sqrt(3/(4*np.pi)) * self.x
+        self.Z = np.sqrt(3/(4*np.pi)) * self.z
         
-        self.Z2 = self.z**2 - 0.5*(self.x**2 + self.y**2)
-        self.XZ = 3 * self.x * self.z
-        self.YZ = 3 * self.y * self.z
-        self.X2_Y2 = 3 * (self.x**2 - self.y**2)
-        self.XY = 6 * self.x * self.y
-        
-        self.Z3 = self.z**3 - 3.0/2.0*(self.x**2 + self.y**2)*self.z
-        self.XZ2 = 6 * self.x * (self.z**2 - (self.x**2 + self.y**2)/4.0)
-        self.YZ2 = 6 * self.y * (self.z**2 - (self.x**2 + self.y**2)/4.0)
-        self.ZX2_ZY2 = 15 * self.z * (self.x**2 - self.y**2)
-        self.XYZ = 30 * self.z * self.x * self.y
-        self.X3 = 15 * self.x**3 - 45 * self.x*self.y**2
-        self.Y3 = 45 * self.x**2 * self.y - 15*self.y**3
+        self.XY = 0.5*np.sqrt(15/np.pi) * self.x * self.y
+        self.YZ = 0.5*np.sqrt(15/np.pi) * self.y * self.z
+        self.Z2 = 0.25*np.sqrt(5/np.pi) * (2*self.z**2 - self.x**2 - self.y**2)
+        self.XZ = 0.5*np.sqrt(15/np.pi) * self.x * self.z
+        self.X2_Y2 = 0.25*np.sqrt(15/np.pi) * (self.x**2 - self.y**2)
 
-        self.Z4 = self.z**4 - 3*self.z**2*(self.x**2 + self.y**2) + 3.0/8.0*(self.x**2 + self.y**2)**2
-        self.Z5 = self.z**5 - 5*self.z**3*(self.x**2 + self.y**2) + 15.0/8.0*self.z*(self.x**2 + self.y**2)**2
+        self.Y3 = 0.25*np.sqrt(35/(2*np.pi)) * (3*self.x**2 * self.y - self.y**3)
+        self.XYZ = 0.5*np.sqrt(105/np.pi) * self.z * self.x * self.y
+        self.YZ2 = 0.25*np.sqrt(21/(2*np.pi)) * self.y * (4*self.z**2 - self.x**2 - self.y**2)
+        self.Z3 = 0.25*np.sqrt(7/np.pi)*self.z*(2*self.z**2 - 3*self.x**2 - 3*self.y**2)
+        self.XZ2 = 0.25*np.sqrt(21/(2*np.pi)) * self.x * (4*self.z**2 - self.x**2 - self.y**2)
+        self.ZX2_ZY2 = 0.25*np.sqrt(105/np.pi) * self.z * (self.x**2 - self.y**2)
+        self.X3 = 0.25*np.sqrt(35/(2*np.pi)) * (self.x**3 - 3*self.y**2 * self.x) 
 
         self.Mfield = np.zeros(self.x.shape)
         self.freq = np.linspace(-self.sw/2.0, self.sw/2.0, self.npoints)
         self.lb = np.exp(-((10*np.pi*np.arange(self.npoints*self.OVERSAMPLE)/self.sw)**2) / (4.0 * np.log(2)))
         self.lb[self.npoints-(self.npoints+1)//2:] = 0
         self.lb[0] = self.lb[0]/2.0
+        self.lbScale = np.sum(np.abs(self.lb)) * self.N / (self.npoints*self.OVERSAMPLE*100.0)
 
-    def simulate(self, z1=0, x1=0, y1=0, z2=0, xz=0, yz=0, x2_y2=0, xy=0, z3=0, xz2=0, yz2=0, zx2_zy2=0, xyz=0, x3=0, y3=0, z4=0, z5=0):
+    def simulate(self, y1=0, z1=0, x1=0, xy=0, yz=0, z2=0, xz=0, x2_y2=0, y3=0, xyz=0, yz2=0, z3=0, xz2=0, zx2_zy2=0, x3=0, spinning=False):
+        y1 += self.y1Game
         z1 += self.z1Game
         x1 += self.x1Game
-        y1 += self.y1Game
 
+        xy += self.xyGame
+        yz += self.yzGame
         z2 += self.z2Game
         xz += self.xzGame
-        yz += self.yzGame
         x2_y2 += self.x2_y2Game
-        xy += self.xyGame
 
+        y3 += self.y3Game
+        xyz += self.xyzGame
+        yz2 += self.yz2Game
         z3 += self.z3Game
         xz2 += self.xz2Game
-        yz2 += self.yz2Game
         zx2_zy2 += self.zx2_zy2Game
-        xyz += self.xyzGame
         x3 += self.x3Game
-        y3 += self.y3Game
 
-        z4 += self.z4Game
-        z5 += self.z5Game
+        [y1, z1, x1] = np.dot(self.rotMatrix_1, [y1, z1, x1])
+        [xy, yz, z2, xz, x2_y2] = np.dot(self.rotMatrix_2, [xy, yz, z2, xz, x2_y2])
+        [y3, xyz, yz2, z3, xz2, zx2_zy2, x3] = np.dot(self.rotMatrix_3, [y3, xyz, yz2, z3, xz2, zx2_zy2, x3])
 
-        self.Mfield = x1*self.X + y1*self.Y + z1*self.Z
-        self.Mfield += z2*self.Z2 + xz*self.XZ + xy*self.XY + yz*self.YZ + x2_y2*self.X2_Y2
-        self.Mfield += z3*self.Z3 + xz2*self.XZ2 + yz2*self.YZ2 + zx2_zy2*self.ZX2_ZY2 + xyz*self.XYZ + x3*self.X3 + y3*self.Y3
-        self.Mfield += z4*self.Z4 + z5*self.Z5  
+        self.Mfield = z1*self.Z + z2*self.Z2 + z3*self.Z3
+        if not spinning:
+            self.Mfield += x1*self.X + y1*self.Y
+            self.Mfield += xz*self.XZ + xy*self.XY + yz*self.YZ + x2_y2*self.X2_Y2
+            self.Mfield += xz2*self.XZ2 + yz2*self.YZ2 + zx2_zy2*self.ZX2_ZY2 + xyz*self.XYZ + x3*self.X3 + y3*self.Y3
         
-        self.spectrum, tmp = np.histogram(self.Mfield, self.npoints*self.OVERSAMPLE, (-self.sw/2.0, self.sw/2.0), density=True)
-        self.spectrum = np.fft.fft(np.fft.ifft(self.spectrum)*self.lb)
-        self.spectrum = self.spectrum[::self.OVERSAMPLE]
-        self.fidSurface = (np.sum(np.abs(self.spectrum))+np.abs(self.spectrum[0])*0.5)*self.sw
+        self.spectrum, tmp = np.histogram(self.Mfield, self.npoints*self.OVERSAMPLE, (-self.sw/2.0, self.sw/2.0))
+        self.spectrum = np.fft.ifft(self.spectrum)*self.lb
+        self.fidSurface = (np.sum(np.abs(self.spectrum)))/ (self.lbScale)        
+        self.spectrum = np.fft.fft(self.spectrum)[::self.OVERSAMPLE]
         self.spectrum = np.real(self.spectrum)
         r  = UnivariateSpline(self.freq, self.spectrum-np.max(self.spectrum)/2.0, s=0).roots()
         self.fwhm = np.abs(max(r)-min(r))
 
     def resetGame(self):
+        self.y1Game = 0.0
         self.z1Game = 0.0
         self.x1Game = 0.0
-        self.y1Game = 0.0
         
+        self.xyGame = 0.0
+        self.yzGame = 0.0
         self.z2Game = 0.0
         self.xzGame = 0.0
-        self.yzGame = 0.0
         self.x2_y2Game = 0.0
-        self.xyGame = 0.0
 
+        self.y3Game = 0.0
+        self.xyzGame = 0.0
+        self.yz2Game = 0.0
         self.z3Game = 0.0
         self.xz2Game = 0.0
-        self.yz2Game = 0.0
         self.zx2_zy2Game = 0.0
-        self.xyzGame = 0.0
         self.x3Game = 0.0
-        self.y3Game = 0.0
-
-        self.z4Game = 0.0
-        self.z5Game = 0.0
 
     def startGame(self, order=4, zonly=False):
         self.resetGame()
@@ -170,8 +227,6 @@ class ShimSim(object):
             self.z1Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z1LIM/NSTEPS
             self.z2Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z2LIM/NSTEPS
             self.z3Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z3LIM/NSTEPS
-            self.z4Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z4LIM/NSTEPS
-            self.z5Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z5LIM/NSTEPS
             return
         self.z1Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z1LIM/NSTEPS
         self.x1Game = np.random.randint(-NSTEPS, NSTEPS+1)*X1LIM/NSTEPS
@@ -190,9 +245,6 @@ class ShimSim(object):
             self.xyzGame = np.random.randint(-NSTEPS, NSTEPS+1)*XYZLIM/NSTEPS
             self.x3Game = np.random.randint(-NSTEPS, NSTEPS+1)*X3LIM/NSTEPS
             self.y3Game = np.random.randint(-NSTEPS, NSTEPS+1)*Y3LIM/NSTEPS
-        if order > 3:
-            self.z4Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z4LIM/NSTEPS
-            self.z5Game = np.random.randint(-NSTEPS, NSTEPS+1)*Z5LIM/NSTEPS
         
 
 class ShimFrame(QtWidgets.QScrollArea):
@@ -203,7 +255,7 @@ class ShimFrame(QtWidgets.QScrollArea):
         content = QtWidgets.QWidget(self)
         self.grid = QtWidgets.QGridLayout(content)
 
-        self.grid.addWidget(QtWidgets.QLabel("FID Surface:"), 0, 0)
+        self.grid.addWidget(QtWidgets.QLabel("FID Surface [%]:"), 0, 0)
         self.fidSurfaceLine = QtWidgets.QLineEdit(self)
         self.fidSurfaceLine.setAlignment(QtCore.Qt.AlignHCenter)
         self.fidSurfaceLine.setText("0.0")
@@ -397,50 +449,25 @@ class ShimFrame(QtWidgets.QScrollArea):
         self.y3Scale.valueChanged.connect(lambda inp: self.setVal(inp, self.y3, NSTEPS/Y3LIM))
         self.grid.addWidget(self.y3Scale, 22, 2)
         
-        self.z4Label = QtWidgets.QLabel()
-        self.grid.addWidget(self.z4Label, 2, 3)
-        self.z4 = QtWidgets.QLineEdit(self)
-        self.z4.setAlignment(QtCore.Qt.AlignHCenter)
-        self.z4.setText("0.0")
-        self.z4.returnPressed.connect(lambda: self.insertVal(self.z4, self.z4Scale, NSTEPS/Z4LIM))
-        self.grid.addWidget(self.z4, 3, 3)
-        self.z4Scale = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self.z4Scale.setRange(-NSTEPS, NSTEPS)
-        self.z4Scale.valueChanged.connect(lambda inp: self.setVal(inp, self.z4, NSTEPS/Z4LIM))
-        self.grid.addWidget(self.z4Scale, 4, 3)
-
-        self.z5Label = QtWidgets.QLabel()
-        self.grid.addWidget(self.z5Label, 5, 3)
-        self.z5 = QtWidgets.QLineEdit(self)
-        self.z5.setAlignment(QtCore.Qt.AlignHCenter)
-        self.z5.setText("0.0")
-        self.z5.returnPressed.connect(lambda: self.insertVal(self.z5, self.z5Scale, NSTEPS/Z5LIM))
-        self.grid.addWidget(self.z5, 6, 3)
-        self.z5Scale = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self.z5Scale.setRange(-NSTEPS, NSTEPS)
-        self.z5Scale.valueChanged.connect(lambda inp: self.setVal(inp, self.z5, NSTEPS/Z5LIM))
-        self.grid.addWidget(self.z5Scale, 7, 3)
         QtCore.QTimer.singleShot(100, self.resizeAll)
         self.setTitleText()
 
-    def setTitleText(self, z1='', x1='', y1='', z2='', xz='', yz='', x2_y2='', xy='', z3='', xz2='', yz2='', zx2_zy2='', xyz='', x3='', y3='', z4='', z5=''):
+    def setTitleText(self, y1='', z1='', x1='', xy='', yz='', z2='', xz= '', x2_y2='', y3='', xyz='', yz2='', z3='', xz2='', zx2_zy2='', x3=''):
+        self.y1Label.setText('Y: ' + str(y1))
         self.z1Label.setText('Z: ' + str(z1))
         self.x1Label.setText('X: ' + str(x1))
-        self.y1Label.setText('Y: ' + str(y1))
+        self.xyLabel.setText('XY: ' + str(xy))
+        self.yzLabel.setText('YZ: ' + str(yz))
         self.z2Label.setText('Z2: ' + str(z2))
         self.xzLabel.setText('XZ: ' + str(xz))
-        self.yzLabel.setText('YZ: ' + str(yz))
         self.x2_y2Label.setText('X2-Y2: ' + str(x2_y2))
-        self.xyLabel.setText('XY: ' + str(xy))
+        self.y3Label.setText('Y3: ' + str(y3))
+        self.xyzLabel.setText('XYZ: ' + str(xyz))
+        self.yz2Label.setText('YZ2: ' + str(yz2))
         self.z3Label.setText('Z3: ' + str(z3))
         self.xz2Label.setText('XZ2: ' + str(xz2))
-        self.yz2Label.setText('YZ2: ' + str(yz2))
         self.zx2_zy2Label.setText('(X2-Y2)Z: ' + str(zx2_zy2))
-        self.xyzLabel.setText('XYZ: ' + str(xyz))
         self.x3Label.setText('X3: ' + str(x3))
-        self.y3Label.setText('Y3: ' + str(y3))
-        self.z4Label.setText('Z4: ' + str(z4))
-        self.z5Label.setText('Z5: ' + str(z5))
         
     def resizeAll(self):
         self.setMinimumWidth(self.grid.sizeHint().width() + self.verticalScrollBar().sizeHint().width())
@@ -460,28 +487,26 @@ class ShimFrame(QtWidgets.QScrollArea):
         self.sim()
         
     def sim(self, *args):
+        y1 = safeEval(self.y1.text())
         z1 = safeEval(self.z1.text())
         x1 = safeEval(self.x1.text())
-        y1 = safeEval(self.y1.text())
+        xy = safeEval(self.xy.text())
+        yz = safeEval(self.yz.text())
         z2 = safeEval(self.z2.text())
         xz = safeEval(self.xz.text())
-        yz = safeEval(self.yz.text())
         x2_y2 = safeEval(self.x2_y2.text())
-        xy = safeEval(self.xy.text())
+        y3 = safeEval(self.y3.text())
+        xyz = safeEval(self.xyz.text())
+        yz2 = safeEval(self.yz2.text())
         z3 = safeEval(self.z3.text())
         xz2 = safeEval(self.xz2.text())
-        yz2 = safeEval(self.yz2.text())
         zx2_zy2 = safeEval(self.zx2_zy2.text())
-        xyz = safeEval(self.xyz.text())
         x3 = safeEval(self.x3.text())
-        y3 = safeEval(self.y3.text())
-        z4 = safeEval(self.z4.text())
-        z5 = safeEval(self.z5.text())
-        self.father.sim(z1=z1, x1=x1, y1=y1, z2=z2, xz=xz, yz=yz, x2_y2=x2_y2, xy=xy, z3=z3, xz2=xz2, yz2=yz2, zx2_zy2=zx2_zy2, xyz=xyz, x3=x3, y3=y3, z4=z4, z5=z5)
+        self.father.sim(z1=z1, x1=x1, y1=y1, xy=xy, yz=yz, z2=z2, xz=xz, x2_y2=x2_y2, y3=y3, xyz=xyz, yz2=yz2, z3=z3, xz2=xz2, zx2_zy2=zx2_zy2, x3=x3)
 
     def resetShims(self):
-        lineedits = [self.z1, self.x1, self.y1, self.z2, self.xz, self.yz, self.x2_y2, self.xy, self.z3, self.xz2, self.yz2, self.zx2_zy2, self.xyz, self.x3, self.y3, self.z4, self.z5]
-        scale = [self.z1Scale, self.x1Scale, self.y1Scale, self.z2Scale, self.xzScale, self.yzScale, self.x2_y2Scale, self.xyScale, self.z3Scale, self.xz2Scale, self.yz2Scale, self.zx2_zy2Scale, self.xyzScale, self.x3Scale, self.y3Scale, self.z4Scale, self.z5Scale]
+        lineedits = [self.y1, self.z1, self.x1, self.xz, self.yz, self.z2, self.xz, self.x2_y2, self.y3, self.xyz, self.yz2, self.z3, self.xz2, self.zx2_zy2, self.x3]
+        scale = [self.y1Scale, self.z1Scale, self.x1Scale, self.xyScale, self.yzScale, self.z2Scale, self.xzScale, self.x2_y2Scale, self.y3Scale, self.xyzScale, self.yz2Scale, self.z3Scale, self.xz2Scale, self.zx2_zy2Scale, self.x3Scale]
         for i in range(len(lineedits)):
             lineedits[i].setText("0.0")
             scale[i].blockSignals(True)
@@ -514,6 +539,10 @@ class SettingsFrame(QtWidgets.QWidget):
         self.length.setText(str(self.shimSim.l))
         self.length.returnPressed.connect(self.setDimensions)
         grid.addWidget(self.length, 2, 1)
+        self.spinningButton = QtWidgets.QCheckBox('Spinning', self)
+        self.spinningButton.stateChanged.connect(self.father.shimFrame.sim)
+        grid.addWidget(self.spinningButton, 3, 0)
+
         
         grid.addWidget(QtWidgets.QLabel("Rotation:"), 0, 2)
         grid.addWidget(QtWidgets.QLabel("Theta [degrees]:"), 1, 2)
@@ -553,15 +582,12 @@ class SettingsFrame(QtWidgets.QWidget):
         self.game3Button = QtWidgets.QPushButton('3rd order', self)
         self.game3Button.clicked.connect(lambda: self.father.startGame(3))
         grid.addWidget(self.game3Button, 3, 8)
-        self.game4Button = QtWidgets.QPushButton('All', self)
-        self.game4Button.clicked.connect(lambda: self.father.startGame(4))
-        grid.addWidget(self.game4Button, 4, 8)
         self.gameZButton = QtWidgets.QPushButton('Z* only', self)
         self.gameZButton.clicked.connect(lambda: self.father.startGame(zonly=True))
-        grid.addWidget(self.gameZButton, 5, 8)
+        grid.addWidget(self.gameZButton, 4, 8)
         self.gameStopButton = QtWidgets.QPushButton('Stop', self)
         self.gameStopButton.clicked.connect(self.father.resetGame)
-        grid.addWidget(self.gameStopButton, 6, 8)
+        grid.addWidget(self.gameStopButton, 5, 8)
         
         self.resultsButton = QtWidgets.QCheckBox('Results', self)
         self.resultsButton.stateChanged.connect(self.results)
@@ -610,7 +636,7 @@ class SettingsFrame(QtWidgets.QWidget):
         
     def results(self, val):
         if val:
-            self.father.shimFrame.setTitleText(-self.shimSim.z1Game, -self.shimSim.x1Game, -self.shimSim.y1Game, -self.shimSim.z2Game, -self.shimSim.xzGame, -self.shimSim.yzGame, -self.shimSim.x2_y2Game, -self.shimSim.xyGame, -self.shimSim.z3Game, -self.shimSim.xz2Game, -self.shimSim.yz2Game, -self.shimSim.zx2_zy2Game, -self.shimSim.xyzGame, -self.shimSim.x3Game, -self.shimSim.y3Game, -self.shimSim.z4Game, -self.shimSim.z5Game)
+            self.father.shimFrame.setTitleText(-self.shimSim.y1Game, -self.shimSim.z1Game, -self.shimSim.x1Game, -self.shimSim.xyGame, -self.shimSim.yzGame, -self.shimSim.z2Game, -self.shimSim.xzGame, -self.shimSim.x2_y2Game, -self.shimSim.y3Game, -self.shimSim.xyzGame, -self.shimSim.yz2Game, -self.shimSim.z3Game, -self.shimSim.xz2Game, -self.shimSim.zx2_zy2Game, -self.shimSim.x3Game)
         else:
             self.father.shimFrame.setTitleText()
 
@@ -682,7 +708,7 @@ class MainProgram(QtWidgets.QMainWindow):
         self.shimPlotFrame.plotReset()
 
     def sim(self, *args, **kwargs):
-        self.shimSim.simulate(*args, **kwargs)
+        self.shimSim.simulate(*args, spinning=self.settingsFrame.spinningButton.isChecked(), **kwargs)
         self.shimPlotFrame.setData(self.shimSim.freq, self.shimSim.spectrum)
         self.shimPlotFrame.showFid()
         self.shimFrame.setValues(self.shimSim.fidSurface, self.shimSim.fwhm)
