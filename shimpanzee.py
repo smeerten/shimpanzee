@@ -160,7 +160,7 @@ class ShimSim(object):
 
         self.Mfield = np.zeros(self.x.shape)
         self.freq = np.linspace(-self.sw/2.0, self.sw/2.0, self.npoints)
-        self.lb = np.exp(-((10*np.pi*np.arange(self.npoints*self.OVERSAMPLE)/self.sw)**2) / (4.0 * np.log(2)))
+        self.lb = np.exp(-((10*np.pi*np.arange(self.npoints*self.OVERSAMPLE)/self.sw)**2) / (4.0 * np.log(2)))/self.N
         self.lb[self.npoints-(self.npoints+1)//2:] = 0
         self.lb[0] = self.lb[0]/2.0
         self.lbScale = np.sum(np.abs(self.lb)) * self.N / (self.npoints*self.OVERSAMPLE*100.0)
