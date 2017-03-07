@@ -515,6 +515,10 @@ class ShimFrame(QtWidgets.QScrollArea):
         self.sim()
 
     def setValues(self, fidSurface, fwhm):
+        if fidSurface > 95:
+            self.fidSurfaceLine.setStyleSheet("color: rgb(0, 137, 0);")
+        else:
+            self.fidSurfaceLine.setStyleSheet("color: rgb(0, 0, 0);")
         self.fidSurfaceLine.setText("%.2f" % fidSurface)
         self.fwhmLine.setText("%.2f" % fwhm)
 
