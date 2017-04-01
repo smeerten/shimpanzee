@@ -1,5 +1,6 @@
 import sip
 import sys
+import os
 sip.setapi('QString', 2)
 try:
     from PyQt4 import QtGui, QtCore
@@ -8,22 +9,55 @@ try:
 except ImportError:
     from PyQt5 import QtGui, QtCore, QtWidgets
     QT = 5
+    
+if __name__ == '__main__':
+    root = QtWidgets.QApplication(sys.argv)
+    root.setWindowIcon(QtGui.QIcon(os.path.dirname(os.path.realpath(__file__)) + '/logo.gif'))
+    splash_pix = QtGui.QPixmap(os.path.dirname(os.path.realpath(__file__)) + '/logo.gif')
+    splash = QtWidgets.QSplashScreen(splash_pix, QtCore.Qt.WindowStaysOnTopHint)
+    splash.setMask(splash_pix.mask())
+    progressBar = QtWidgets.QProgressBar(splash)
+    progressBar.setGeometry(2.5*splash.width()/10, 0.96*splash.height(),5*splash.width()/10, 0.04 * splash.height())
+    splash.show()    
+    
+splashSteps=8.0/100
+splashStep = 0.0
+def splashProgressStep(splashStep): #A function to easily increase the progressbar value
+    if __name__ == '__main__':
+        splashStep=splashStep+1
+        progressBar.setValue(splashStep // splashSteps + (splashStep % splashSteps > 0)) #Rounds up without math or numpy module
+        root.processEvents()   
+    return splashStep
+
+
+    
 import matplotlib
+splashStep = splashProgressStep(splashStep)
 if QT ==4:
     matplotlib.use('Qt4Agg')
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 else:
     matplotlib.use('Qt5Agg')
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+splashStep = splashProgressStep(splashStep)
 from matplotlib.figure import Figure
+splashStep = splashProgressStep(splashStep)
 import numpy as np
+splashStep = splashProgressStep(splashStep)
 import matplotlib.pyplot as plt
+splashStep = splashProgressStep(splashStep)
 import scipy.stats as stats
+splashStep = splashProgressStep(splashStep)
 from safeEval import safeEval
+splashStep = splashProgressStep(splashStep)
 from spectrumFrame_Shim import Plot1DFrame
+splashStep = splashProgressStep(splashStep)
 from scipy.interpolate import UnivariateSpline
+splashStep = splashProgressStep(splashStep)
 
-                     # x  y  z 
+
+
+                    # x  y  z 
 convert_1 = np.array([[0, 1.0, 0], 
                      [0, 0, 1], 
                      [1, 0, 0]])
@@ -729,8 +763,15 @@ class MainProgram(QtWidgets.QMainWindow):
         self.shimFrame.resetShims()
         
 if __name__ == '__main__':
-    root = QtWidgets.QApplication(sys.argv)
     mainProgram = MainProgram(root)
     mainProgram.setWindowTitle("Shimpanzee")
     mainProgram.show()
+    splash.finish(mainProgram)
     sys.exit(root.exec_())
+    
+#    
+#        mainProgram = MainProgram(root)
+#    mainProgram.setWindowTitle("ssNake - " + VERSION)
+#    mainProgram.show()
+#    splash.finish(mainProgram)
+#    sys.exit(root.exec_())
