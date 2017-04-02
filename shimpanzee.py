@@ -483,6 +483,31 @@ class ShimFrame(QtWidgets.QScrollArea):
         self.y3Scale.valueChanged.connect(lambda inp: self.setVal(inp, self.y3, NSTEPS/Y3LIM))
         self.grid.addWidget(self.y3Scale, 22, 2)
         
+        #Make widget lists
+         
+        self.lineEditsFirst = [self.y1 , self.x1 , self.z1]
+        self.lineEditsSecond = [self.z2 , self.xz, self.yz , self.xy, self.x2_y2]
+        self.lineEditsThird = [self.y3 , self.xyz , self.yz2 , self.z3 ,
+                          self.xz2 , self.xz2 , self.zx2_zy2 , self.x3]
+        self.lineEditsZ = [self.z1 , self.z2, self.z3]
+        self.lineEditsNonZ = [self.y1 , self.x1 , self.xz, 
+                         self.yz , self.xy, self.x2_y2,
+                         self.y3 , self.xyz , self.yz2 ,
+                          self.xz2 , self.xz2 , self.zx2_zy2 , self.x3]
+                          
+        self.sliderFirst = [self.y1Scale , self.x1Scale , self.z1Scale]
+        self.sliderSecond = [self.z2Scale , self.xzScale, self.yzScale , self.xyScale, self.x2_y2Scale]
+        self.sliderThird = [self.y3Scale , self.xyzScale , self.yz2Scale , self.z3Scale ,
+                          self.xz2Scale , self.xz2Scale , self.zx2_zy2Scale , self.x3Scale]
+
+        self.sliderZ = [self.z1Scale , self.z2Scale, self.z3Scale]
+        self.sliderNonZ = [self.y1Scale , self.x1Scale , self.xzScale, 
+                         self.yzScale , self.xyScale, self.x2_y2Scale,
+                         self.y3Scale , self.xyzScale , self.yz2Scale ,
+                          self.xz2Scale , self.xz2Scale , self.zx2_zy2Scale , self.x3Scale]
+        
+        
+        
         QtCore.QTimer.singleShot(100, self.resizeAll)
         self.setTitleText()
 
@@ -753,10 +778,40 @@ class MainProgram(QtWidgets.QMainWindow):
 
     def startGame(self, *args, **kwargs):
         self.shimSim.startGame(*args, **kwargs)
+       
+        
+        
+        if len(args) > 0:   
+            if args[0] == 1:
+                for widget in self.shimFrame.lineEditsFirst + self.shimFrame.sliderFirst:
+                    widget.setDisabled(False)
+                for widget in self.shimFrame.lineEditsSecond + self.shimFrame.lineEditsThird + self.shimFrame.sliderSecond + self.shimFrame.sliderThird:
+                    widget.setDisabled(True)
+            elif args[0] == 2:
+                for widget in self.shimFrame.lineEditsFirst + self.shimFrame.lineEditsSecond + self.shimFrame.sliderFirst + self.shimFrame.sliderSecond:
+                    widget.setDisabled(False)
+                for widget in self.shimFrame.lineEditsThird + self.shimFrame.sliderThird:
+                    widget.setDisabled(True)
+            elif args[0] == 3:
+                for widget in self.shimFrame.lineEditsFirst + self.shimFrame.lineEditsSecond + self.shimFrame.lineEditsThird + self.shimFrame.sliderFirst + self.shimFrame.sliderSecond + self.shimFrame.sliderThird:
+                    widget.setDisabled(False)
+        elif kwargs['zonly']:
+            for widget in self.shimFrame.lineEditsZ + self.shimFrame.sliderZ:
+                widget.setDisabled(False)
+            for widget in self.shimFrame.lineEditsNonZ + self.shimFrame.sliderNonZ:
+                widget.setDisabled(True)
+
+        
+        
+        
+        
+        self.resetShims()
         self.shimFrame.sim()
 
     def resetGame(self):
         self.shimSim.resetGame()
+        for widget in self.shimFrame.lineEditsFirst + self.shimFrame.lineEditsSecond + self.shimFrame.lineEditsThird + self.shimFrame.sliderFirst + self.shimFrame.sliderSecond + self.shimFrame.sliderThird:
+            widget.setDisabled(False)
         self.shimFrame.sim()
 
     def resetShims(self):

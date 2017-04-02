@@ -94,14 +94,20 @@ class Plot1DFrame(object):
                 self.xminlim = middle - width / 2.0
                 self.ax.set_xlim(self.xmaxlim, self.xminlim)
             else:
-                middle = (self.ymaxlim + self.yminlim) / 2.0
-                width = self.ymaxlim - self.yminlim
+#                middle = (self.ymaxlim + self.yminlim) / 2.0
+#                width = self.ymaxlim - self.yminlim
+#                if modifiers == QtCore.Qt.ControlModifier:
+#                    width = width * 0.6**event.step
+#                else:
+#                    width = width * 0.9**event.step
+#                self.ymaxlim = middle + width / 2.0
+#                self.yminlim = middle - width / 2.0
                 if modifiers == QtCore.Qt.ControlModifier:
-                    width = width * 0.6**event.step
+                    self.ymaxlim *= 0.6**event.step
+                    self.yminlim *= 0.6**event.step
                 else:
-                    width = width * 0.9**event.step
-                self.ymaxlim = middle + width / 2.0
-                self.yminlim = middle - width / 2.0
+                    self.ymaxlim *= 0.9**event.step
+                    self.yminlim *= 0.9**event.step
                 self.ax.set_ylim(self.yminlim, self.ymaxlim)
             self.canvas.update()
             self.canvas.draw_idle()
