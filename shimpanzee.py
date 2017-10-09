@@ -774,6 +774,16 @@ class MainProgram(QtWidgets.QMainWindow):
         self.mainFrame = QtWidgets.QGridLayout(self.main_widget)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
+        self.menubar = self.menuBar()
+        self.filemenu = QtWidgets.QMenu('&File', self)
+        self.menubar.addMenu(self.filemenu)
+        self.savefigAct = self.filemenu.addAction('Export Figure', self.saveFigure, QtGui.QKeySequence.Print)
+        self.savefigAct.setToolTip('Export as Figure')
+        self.savedatAct = self.filemenu.addAction('Export Data', self.saveData)
+        self.savedatAct.setToolTip('Export as text')
+        self.quitAct = self.filemenu.addAction('&Quit', self.fileQuit, QtGui.QKeySequence.Quit)
+        self.quitAct.setToolTip('Close Shimpanzee')
+
         self.fig = Figure()
         self.canvas = FigureCanvas(self.fig)
         self.ax = self.fig.gca()
@@ -835,7 +845,28 @@ class MainProgram(QtWidgets.QMainWindow):
 
     def resetShims(self):
         self.shimFrame.resetShims()
-        
+
+    def saveFigure(self):
+        f = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', 'Spectrum.png' ,filter = '(*.png)')
+        if type(f) is tuple:
+            f = f[0]        
+        if f:
+            dpi = 150
+            self.fig.savefig(f, format='png', dpi=dpi)
+
+    def saveData(self):
+        f = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', 'Spectrum.txt' ,filter = '(*.txt)')
+        if type(f) is tuple:
+            f = f[0]        
+        if f:
+            data = np.zeros((len(self.shimSim.spectrum),2))
+            data[:,0] = self.shimPlotFrame.xdata
+            data[:,1] =  self.shimSim.spectrum
+            np.savetxt(f,data)
+
+    def fileQuit(self):
+        self.close()
+ 
 if __name__ == '__main__':
     mainProgram = MainProgram(root)
     mainProgram.setWindowTitle("Shimpanzee")
@@ -843,9 +874,4 @@ if __name__ == '__main__':
     splash.finish(mainProgram)
     sys.exit(root.exec_())
     
-#    
-#        mainProgram = MainProgram(root)
-#    mainProgram.setWindowTitle("ssNake - " + VERSION)
-#    mainProgram.show()
-#    splash.finish(mainProgram)
-#    sys.exit(root.exec_())
+
