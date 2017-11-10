@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Shimpanzee. If not, see <http://www.gnu.org/licenses/>.
 
+import time
+
 import sip
 import sys
 import os
@@ -161,7 +163,7 @@ class ShimSim(object):
     
     def __init__(self, N=100000, dimensions=[2.5,10], angles=[0,0], sw=500.0, npoints=512, sphere=False):
         super(ShimSim, self).__init__()
-        self.OVERSAMPLE = 16
+        self.OVERSAMPLE = 4
         self.N = N
         self.r = dimensions[0] # Diameter to radius [mm]
         self.l = dimensions[1] # length [mm]
@@ -225,7 +227,7 @@ class ShimSim(object):
         self.lb[0] = self.lb[0]/2.0
         self.lbScale = np.sum(np.abs(self.lb)) * self.N / (self.npoints*self.OVERSAMPLE*100.0)
 
-    def simulate(self, y1=0, z1=0, x1=0, xy=0, yz=0, z2=0, xz=0, x2_y2=0, y3=0, xyz=0, yz2=0, z3=0, xz2=0, zx2_zy2=0, x3=0, spinning=False):
+    def simulate(self, z1=0, x1=0, y1=0, z2=0, xz=0, yz=0, x2_y2=0, xy=0, z3=0, xz2=0, yz2=0, zx2_zy2=0, xyz=0, x3=0, y3=0, spinning=False, minimize=False):
         y1 += self.y1Game
         z1 += self.z1Game
         x1 += self.x1Game
@@ -251,7 +253,9 @@ class ShimSim(object):
             self.Mfield += xz2*self.XZ2 + yz2*self.YZ2 + zx2_zy2*self.ZX2_ZY2 + xyz*self.XYZ + x3*self.X3 + y3*self.Y3
         self.spectrum, tmp = np.histogram(self.Mfield, self.npoints*self.OVERSAMPLE, (-self.sw/2.0, self.sw/2.0))
         self.spectrum = np.fft.ifft(self.spectrum)*self.lb
-        self.fidSurface = (np.sum(np.abs(self.spectrum)))/ (self.lbScale)        
+        self.fidSurface = (np.sum(np.abs(self.spectrum)))/ (self.lbScale)
+        if minimize:
+            return
         self.spectrum = np.fft.fft(self.spectrum)[::self.OVERSAMPLE]
         self.spectrum = np.real(self.spectrum)
         r  = UnivariateSpline(self.freq, self.spectrum-np.max(self.spectrum)/2.0, s=0).roots()
@@ -298,7 +302,48 @@ class ShimSim(object):
             self.xyzGame = np.random.randint(-NSTEPS, NSTEPS+1)*XYZLIM/NSTEPS
             self.x3Game = np.random.randint(-NSTEPS, NSTEPS+1)*X3LIM/NSTEPS
             self.y3Game = np.random.randint(-NSTEPS, NSTEPS+1)*Y3LIM/NSTEPS
-        
+
+    def minimize(self, num, values, spinning=False):
+        limits = [Z1LIM, X1LIM, Y1LIM, Z2LIM, XZLIM, YZLIM, X2_Y2LIM, XYLIM, Z3LIM, XZ2LIM, YZ2LIM, ZX2_ZY2LIM, XYZLIM, X3LIM, Y3LIM]
+        numbers = np.arange(-NSTEPS, NSTEPS+1)*limits[num]/NSTEPS
+        numberval = min(numbers, key=lambda x:abs(x-values[num]))
+        pos = np.where(numbers==numberval)[0][0]
+        self.simulate(*values, spinning=spinning, minimize=True)
+        cost = self.fidSurface
+        if pos is 0:
+            direc = 1
+        elif pos is len(numbers)-1:
+            direc = -1
+        else:
+            values[num] = numbers[pos-1]
+            self.simulate(*values, spinning=spinning, minimize=True)
+            if self.fidSurface > cost:
+                cost = self.fidSurface
+                pos = pos-1
+                direc = -1
+            else:
+                values[num] = numbers[pos+1]
+                self.simulate(*values, spinning=spinning, minimize=True)
+                if self.fidSurface > cost:
+                    cost = self.fidSurface
+                    pos = pos+1
+                    direc = 1
+                else:
+                    return numbers[pos]
+        while True:
+            pos += direc
+            if pos < 0:
+                return numbers[0]
+            elif pos >= len(numbers):
+                return numbers[-1]
+            else:
+                values[num] = numbers[pos]
+                self.simulate(*values, spinning=spinning, minimize=True)
+                if self.fidSurface >= cost:
+                    cost = self.fidSurface
+                else:
+                    return numbers[pos-direc]
+                    
 
 class ShimFrame(QtWidgets.QScrollArea):
 
@@ -488,21 +533,21 @@ class ShimFrame(QtWidgets.QScrollArea):
         self.lineEditsFirst = [self.y1 , self.x1 , self.z1]
         self.lineEditsSecond = [self.z2 , self.xz, self.yz , self.xy, self.x2_y2]
         self.lineEditsThird = [self.y3 , self.xyz , self.yz2 , self.z3 ,
-                          self.xz2 , self.xz2 , self.zx2_zy2 , self.x3]
+                               self.xz2 , self.xz2 , self.zx2_zy2 , self.x3]
         self.lineEditsZ = [self.z1 , self.z2, self.z3]
         self.lineEditsNonZ = [self.y1 , self.x1 , self.xz, 
-                         self.yz , self.xy, self.x2_y2,
-                         self.y3 , self.xyz , self.yz2 ,
-                          self.xz2 , self.xz2 , self.zx2_zy2 , self.x3]
+                              self.yz , self.xy, self.x2_y2,
+                              self.y3 , self.xyz , self.yz2 ,
+                              self.xz2 , self.xz2 , self.zx2_zy2 , self.x3]
         self.sliderFirst = [self.y1Scale , self.x1Scale , self.z1Scale]
         self.sliderSecond = [self.z2Scale , self.xzScale, self.yzScale , self.xyScale, self.x2_y2Scale]
         self.sliderThird = [self.y3Scale , self.xyzScale , self.yz2Scale , self.z3Scale ,
-                          self.xz2Scale , self.xz2Scale , self.zx2_zy2Scale , self.x3Scale]
+                            self.xz2Scale , self.xz2Scale , self.zx2_zy2Scale , self.x3Scale]
         self.sliderZ = [self.z1Scale , self.z2Scale, self.z3Scale]
         self.sliderNonZ = [self.y1Scale , self.x1Scale , self.xzScale, 
-                         self.yzScale , self.xyScale, self.x2_y2Scale,
-                         self.y3Scale , self.xyzScale , self.yz2Scale ,
-                          self.xz2Scale , self.xz2Scale , self.zx2_zy2Scale , self.x3Scale]
+                           self.yzScale , self.xyScale, self.x2_y2Scale,
+                           self.y3Scale , self.xyzScale , self.yz2Scale ,
+                           self.xz2Scale , self.xz2Scale , self.zx2_zy2Scale , self.x3Scale]
         QtCore.QTimer.singleShot(100, self.resizeAll)
         self.setTitleText()
 
@@ -558,6 +603,34 @@ class ShimFrame(QtWidgets.QScrollArea):
         x3 = safeEval(self.x3.text())
         self.father.sim(z1=z1, x1=x1, y1=y1, xy=xy, yz=yz, z2=z2, xz=xz, x2_y2=x2_y2, y3=y3, xyz=xyz, yz2=yz2, z3=z3, xz2=xz2, zx2_zy2=zx2_zy2, x3=x3)
 
+    def minimize(self, num):
+        lineedits = [self.z1, self.x1, self.y1, self.z2,
+                     self.xz, self.yz, self.x2_y2, self.xy,
+                     self.z3, self.xz2, self.yz2, self.zx2_zy2,
+                     self.xyz, self.x3, self.y3]
+        scale = [self.z1Scale, self.x1Scale, self.y1Scale, self.z2Scale,
+                 self.xzScale, self.yzScale, self.x2_y2Scale, self.xyScale,
+                 self.z3Scale, self.xz2Scale, self.yz2Scale, self.zx2_zy2Scale,
+                 self.xyzScale, self.x3Scale, self.y3Scale]
+        y1 = safeEval(self.y1.text())
+        z1 = safeEval(self.z1.text())
+        x1 = safeEval(self.x1.text())
+        xy = safeEval(self.xy.text())
+        yz = safeEval(self.yz.text())
+        z2 = safeEval(self.z2.text())
+        xz = safeEval(self.xz.text())
+        x2_y2 = safeEval(self.x2_y2.text())
+        y3 = safeEval(self.y3.text())
+        xyz = safeEval(self.xyz.text())
+        yz2 = safeEval(self.yz2.text())
+        z3 = safeEval(self.z3.text())
+        xz2 = safeEval(self.xz2.text())
+        zx2_zy2 = safeEval(self.zx2_zy2.text())
+        x3 = safeEval(self.x3.text())
+        val = self.father.minimize(num, [z1, x1, y1, z2, xz, yz, x2_y2, xy, z3, xz2, yz2, zx2_zy2, xyz, x3, y3])
+        lineedits[num].setText(str(val))
+        lineedits[num].returnPressed.emit()
+        
     def resetShims(self):
         lineedits = [self.y1, self.z1, self.x1, self.xy,
                      self.yz, self.z2, self.xz, self.x2_y2,
@@ -622,6 +695,16 @@ class SettingsFrame(QtWidgets.QWidget):
         self.phi.setText(str(self.shimSim.phi/np.pi*180.0))
         self.phi.returnPressed.connect(self.setAngles)
         grid.addWidget(self.phi, 2, 3)
+        grid.addWidget(QtWidgets.QLabel("Minimization:"), 3, 2)
+        self.minShimDrop = QtWidgets.QComboBox(self)
+        self.minShimDrop.addItems(["Z", "X", "Y", "Z2",
+                                   "XZ", "YZ", "X2-Y2", "XY",
+                                   "Z3", "XZ2", "YZ2", "ZX2-ZY2",
+                                   "XYZ", "X3", "Y3"])
+        grid.addWidget(self.minShimDrop, 4, 2)
+        self.minShimButton = QtWidgets.QPushButton("Minimize", self)
+        self.minShimButton.clicked.connect(self.minimizeShim)
+        grid.addWidget(self.minShimButton, 4, 3)        
         grid.addWidget(QtWidgets.QLabel("# points:"), 1, 4)
         self.nsamples = QtWidgets.QLineEdit(self)
         self.nsamples.setAlignment(QtCore.Qt.AlignHCenter)
@@ -697,6 +780,10 @@ class SettingsFrame(QtWidgets.QWidget):
             self.shimSim.sw = int(round(sw))
         self.shimSim.setupGrid()
         self.father.shimFrame.sim()
+
+    def minimizeShim(self):
+        num = self.minShimDrop.currentIndex()
+        self.father.shimFrame.minimize(num)
         
     def results(self, val):
         if val:
@@ -790,6 +877,10 @@ class MainProgram(QtWidgets.QMainWindow):
         self.shimPlotFrame.showFid()
         self.shimFrame.setValues(self.shimSim.fidSurface, self.shimSim.fwhm)
 
+    def minimize(self, *args, **kwargs):
+        val = self.shimSim.minimize(*args, spinning=self.settingsFrame.spinningButton.isChecked(), **kwargs)
+        return val
+        
     def startGame(self, *args, **kwargs):
         self.shimSim.startGame(*args, **kwargs)
         if len(args) > 0:   
