@@ -41,7 +41,7 @@ if __name__ == '__main__':
     progressBar.setGeometry(2.5*splash.width()/10, 0.96*splash.height(),5*splash.width()/10, 0.04 * splash.height())
     splash.show()    
     
-splashSteps=8.0/100
+splashSteps=9.0/100
 splashStep = 0.0
 def splashProgressStep(splashStep): #A function to easily increase the progressbar value
     if __name__ == '__main__':
@@ -75,8 +75,8 @@ from spectrumFrame_Shim import Plot1DFrame
 splashStep = splashProgressStep(splashStep)
 from scipy.interpolate import UnivariateSpline
 splashStep = splashProgressStep(splashStep)
-
-
+import scipy.optimize
+splashStep = splashProgressStep(splashStep)
 
                     # x  y  z 
 convert_1 = np.array([[0, 1.0, 0], 
@@ -163,7 +163,7 @@ class ShimSim(object):
     
     def __init__(self, N=100000, dimensions=[2.5,10], angles=[0,0], sw=500.0, npoints=512, sphere=False):
         super(ShimSim, self).__init__()
-        self.OVERSAMPLE = 4
+        self.OVERSAMPLE = 16
         self.N = N
         self.r = dimensions[0] # Diameter to radius [mm]
         self.l = dimensions[1] # length [mm]
@@ -305,45 +305,16 @@ class ShimSim(object):
 
     def minimize(self, num, values, spinning=False):
         limits = [Z1LIM, X1LIM, Y1LIM, Z2LIM, XZLIM, YZLIM, X2_Y2LIM, XYLIM, Z3LIM, XZ2LIM, YZ2LIM, ZX2_ZY2LIM, XYZLIM, X3LIM, Y3LIM]
-        numbers = np.arange(-NSTEPS, NSTEPS+1)*limits[num]/NSTEPS
-        numberval = min(numbers, key=lambda x:abs(x-values[num]))
-        pos = np.where(numbers==numberval)[0][0]
-        self.simulate(*values, spinning=spinning, minimize=True)
-        cost = self.fidSurface
-        if pos is 0:
-            direc = 1
-        elif pos is len(numbers)-1:
-            direc = -1
-        else:
-            values[num] = numbers[pos-1]
+        def minFunc(value):
+            values[num] = value
             self.simulate(*values, spinning=spinning, minimize=True)
-            if self.fidSurface > cost:
-                cost = self.fidSurface
-                pos = pos-1
-                direc = -1
-            else:
-                values[num] = numbers[pos+1]
-                self.simulate(*values, spinning=spinning, minimize=True)
-                if self.fidSurface > cost:
-                    cost = self.fidSurface
-                    pos = pos+1
-                    direc = 1
-                else:
-                    return numbers[pos]
-        while True:
-            pos += direc
-            if pos < 0:
-                return numbers[0]
-            elif pos >= len(numbers):
-                return numbers[-1]
-            else:
-                values[num] = numbers[pos]
-                self.simulate(*values, spinning=spinning, minimize=True)
-                if self.fidSurface >= cost:
-                    cost = self.fidSurface
-                else:
-                    return numbers[pos-direc]
-                    
+            return -self.fidSurface
+        minimum = scipy.optimize.fminbound(minFunc, -limits[num], limits[num])
+        numbers = np.arange(-NSTEPS, NSTEPS+1)*limits[num]/NSTEPS
+        numberval = min(numbers, key=lambda x:abs(x-minimum))
+        pos = np.where(numbers==numberval)[0][0]
+        return numbers[pos]
+
 
 class ShimFrame(QtWidgets.QScrollArea):
 
