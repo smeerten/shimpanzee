@@ -18,18 +18,17 @@
 # along with Shimpanzee. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-import matplotlib.gridspec as gridspec
 try:
-    from PyQt4 import QtGui, QtCore
-    from PyQt4 import QtGui as QtWidgets    
-except ImportError:
     from PyQt5 import QtGui, QtCore, QtWidgets
+except ImportError:
+    from PyQt4 import QtGui, QtCore
+    from PyQt4 import QtGui as QtWidgets
 
 #########################################################################################################
 # the class from which the 1d data is displayed, the operations which only edit the content of this class are for previewing
 
 
-class Plot1DFrame(object):
+class Plot1DFrame:
 
     def __init__(self, root, fig, canvas):
         self.root = root
@@ -65,13 +64,13 @@ class Plot1DFrame(object):
         if self.rect[0] is not None:
             try:
                 self.rect[0].remove()
-            except:
+            except Exception:
                 pass
             self.canvas.draw_idle()
         if self.rect[1] is not None:
             try:
                 self.rect[1].remove()
-            except:
+            except Exception:
                 pass
             self.canvas.draw_idle()
         self.rect = [None, None, None, None]
@@ -189,16 +188,16 @@ class Plot1DFrame(object):
             diffx = point[0] - self.panX
             diffy = point[1] - self.panY
             if modifiers == QtCore.Qt.ControlModifier:
-                self.xmaxlim = self.xmaxlim - diffx
-                self.xminlim = self.xminlim - diffx
+                self.xmaxlim -= diffx
+                self.xminlim += diffx
             elif modifiers == QtCore.Qt.ShiftModifier:
-                self.ymaxlim = self.ymaxlim - diffy
-                self.yminlim = self.yminlim - diffy
+                self.ymaxlim -= diffy
+                self.yminlim -= diffy
             else:
-                self.xmaxlim = self.xmaxlim - diffx
-                self.xminlim = self.xminlim - diffx
-                self.ymaxlim = self.ymaxlim - diffy
-                self.yminlim = self.yminlim - diffy
+                self.xmaxlim -= diffx
+                self.xminlim -= diffx
+                self.ymaxlim -= diffy
+                self.yminlim -= diffy
             self.ax.set_xlim(self.xmaxlim, self.xminlim)
             self.ax.set_ylim(self.yminlim, self.ymaxlim)
             self.canvas.draw_idle()
@@ -206,13 +205,13 @@ class Plot1DFrame(object):
             if self.rect[0] is not None:
                 try:
                     self.rect[0].remove()
-                except:
+                except Exception:
                     pass
                 self.rect[0] = None
             if self.rect[1] is not None:
                 try:
                     self.rect[1].remove()
-                except:
+                except Exception:
                     pass
                 self.rect[1] = None
             if event.xdata is not None:
