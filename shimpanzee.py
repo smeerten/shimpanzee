@@ -36,7 +36,7 @@ if __name__ == '__main__':
     splash = QtWidgets.QSplashScreen(splash_pix, QtCore.Qt.WindowStaysOnTopHint)
     splash.setMask(splash_pix.mask())
     progressBar = QtWidgets.QProgressBar(splash)
-    progressBar.setGeometry(2.5*splash.width()/10, 0.96*splash.height(), 5*splash.width()/10, 0.04 * splash.height())
+    progressBar.setGeometry(int(2.5*splash.width()/10), int(0.96*splash.height()), int(5*splash.width()/10), int(0.04 * splash.height()))
     splash.show()
 
 splashSteps = 9.0/100
@@ -44,7 +44,7 @@ splashStep = 0.0
 def splashProgressStep(splashStep): #A function to easily increase the progressbar value
     if __name__ == '__main__':
         splashStep += 1
-        progressBar.setValue(splashStep // splashSteps + (splashStep % splashSteps > 0)) #Rounds up without math or numpy module
+        progressBar.setValue(int(splashStep // splashSteps + (splashStep % splashSteps > 0))) #Rounds up without math or numpy module
         root.processEvents()
     return splashStep
 
